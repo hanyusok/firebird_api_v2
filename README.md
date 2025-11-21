@@ -17,39 +17,35 @@ Firebird 데이터베이스 파일을 분석하고 RESTful API 서비스를 제�
 
 **Firebird 서버 설치 확인:**
 ```bash
-./check-firebird.sh
+# 프로세스 확인
+ps aux | grep -E "(firebird|fbguard)"
+
+# 포트 확인
+lsof -i :3050
 ```
 
 **Firebird 서버가 설치되어 있지 않은 경우:**
 
-1. **자동 설치 (권장):**
-   ```bash
-   ./install-firebird.sh
-   ```
-
-2. **수동 설치:**
+1. **수동 설치:**
    - [Firebird GitHub 릴리스](https://github.com/FirebirdSQL/firebird/releases/latest)에서 macOS용 패키지 다운로드
    - Apple Silicon: `Firebird-*-macos-arm64.pkg`
    - Intel: `Firebird-*-macos-x64.pkg`
+   - 다운로드한 `.pkg` 파일 실행하여 설치
 
-3. **설치 후 서버 시작:**
+2. **설치 후 서버 시작:**
    ```bash
    sudo launchctl load -w /Library/LaunchDaemons/org.firebird.gds.plist
    ```
 
-**버전 호환성 문제가 있는 경우:**
+**버전 호환성 문제:**
 
-데이터베이스 파일이 Firebird 2.x/3.x 형식인 경우 Firebird 3.0을 설치해야 합니다:
+데이터베이스 파일이 Firebird 2.x/3.x 형식(ODS 11.2)인 경우:
+- Firebird 3.0 또는 4.0 설치 필요
+- Firebird 5.0은 ODS 13.1을 사용하므로 호환되지 않음
 
-```bash
-./reinstall-firebird-3.0.sh
-```
+자세한 내용은 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)를 참고하세요.
 
-이 스크립트는:
-- 기존 Firebird 5.0 제거
-- Firebird 3.0 다운로드 및 설치
-
-자세한 내용은 [SETUP.md](./SETUP.md)와 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)를 참고하세요.
+자세한 내용은 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)와 [SCRIPTS.md](./SCRIPTS.md)를 참고하세요.
 
 ## 설치
 
