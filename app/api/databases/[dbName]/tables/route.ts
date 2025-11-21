@@ -1,0 +1,67 @@
+import { NextResponse } from 'next/server';
+import { executeQuery, getDatabaseFiles } from '@/lib/firebird';
+import path from 'path';
+
+/**
+ * GET /api/databases/[dbName]/tables
+ * 특정 데이터베이스의 테이블 목록 조회
+ */
+export async function GET(
+  request: Request,
+  { params }: { params: { dbName: string } }
+) {
+  try {
+    const { dbName } = params;
+    const dbFiles = getDatabaseFiles();
+    const dbFile = dbFiles.find(
+      (f) => path.basename(f, path.extname(f)).toLowerCase() === dbName.toLowerCase()
+    );
+
+    if (!dbFile) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `데이터베이스 '${dbName}'를 찾을 수 없습니다.`,
+        },
+        { status: 404 }
+      );
+    }
+
+    const query = `
+      SELECT RDB$RELATION_NAME AS TABLE_NAME
+      FROM RDB$RELATIONS
+      WHERE RDB$SYSTEM_FLAG = 0
+      AND RDB$RELATION_TYPE = 0
+      ORDER BY RDB$RELATION_NAME
+    `;
+
+    const result = await executeQuery<{ TABLE_NAME: string }>(
+      { database: dbFile },
+      query
+    );
+
+    const tables = result.map((row) => {
+      const tableName = row.TABLE_NAME?.toString().trim();
+      return {
+        name: tableName,
+        url: `/api/databases/${dbName}/tables/${tableName}`,
+      };
+    });
+
+    return NextResponse.json({
+      success: true,
+      database: dbName,
+      count: tables.length,
+      tables,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}
+
