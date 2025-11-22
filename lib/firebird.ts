@@ -63,7 +63,19 @@ export async function executeQuery<T = any>(
 
     firebird.attach(options, (err, db) => {
       if (err) {
-        reject(err);
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        const errorDetails = err instanceof Error ? err.stack : String(err);
+        console.error('Firebird 연결 오류:', {
+          error: errorMsg,
+          details: errorDetails,
+          options: {
+            host: options.host,
+            port: options.port,
+            database: options.database,
+            user: options.user,
+          },
+        });
+        reject(new Error(`Firebird 연결 실패: ${errorMsg}`));
         return;
       }
 
@@ -71,7 +83,13 @@ export async function executeQuery<T = any>(
         db.detach();
 
         if (err) {
-          reject(err);
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          console.error('Firebird 쿼리 오류:', {
+            error: errorMsg,
+            query: query.substring(0, 100),
+            params,
+          });
+          reject(new Error(`쿼리 실행 실패: ${errorMsg}`));
           return;
         }
 

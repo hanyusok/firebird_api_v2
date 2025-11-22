@@ -26,6 +26,24 @@ lsof -i :3050
 
 **Firebird 서버가 설치되어 있지 않은 경우:**
 
+#### Ubuntu/WSL 설치:
+
+```bash
+# Firebird 3.0 서버 설치
+sudo apt update
+sudo apt install firebird3.0-server firebird3.0-utils -y
+
+# 설치 중 SYSDBA 비밀번호 설정 (기본값: masterkey)
+# 설치 후 서버 시작
+sudo systemctl start firebird3.0
+sudo systemctl enable firebird3.0
+
+# 서버 상태 확인
+sudo systemctl status firebird3.0
+```
+
+#### macOS 설치:
+
 1. **수동 설치:**
    - [Firebird GitHub 릴리스](https://github.com/FirebirdSQL/firebird/releases/latest)에서 macOS용 패키지 다운로드
    - Apple Silicon: `Firebird-*-macos-arm64.pkg`
@@ -62,8 +80,13 @@ FIREBIRD_HOST=localhost
 FIREBIRD_PORT=3050
 FIREBIRD_USER=SYSDBA
 FIREBIRD_PASSWORD=masterkey
-FIREBIRD_DATABASE_PATH=./Db
+FIREBIRD_DATABASE_PATH=/db
 ```
+
+**참고:** 
+- Ubuntu/WSL에서 DB 파일이 `/db` 폴더에 있는 경우: `FIREBIRD_DATABASE_PATH=/db`
+- 프로젝트 내 `Db/` 폴더를 사용하는 경우: `FIREBIRD_DATABASE_PATH=./Db`
+- Windows Firebird 서버를 사용하는 경우: `FIREBIRD_HOST=172.23.16.1` (Windows 호스트 IP)
 
 ## 사용 방법
 

@@ -55,10 +55,16 @@ export async function GET(
       tables,
     });
   } catch (error: any) {
+    console.error('Tables API 오류:', {
+      dbName,
+      error: error.message,
+      stack: error.stack,
+    });
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error: error.message || '알 수 없는 오류가 발생했습니다.',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       },
       { status: 500 }
     );
