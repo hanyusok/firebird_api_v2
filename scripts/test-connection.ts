@@ -66,21 +66,21 @@ async function testConnection(dbPath: string): Promise<void> {
  * 메인 실행 함수
  */
 async function main() {
-  const dbPath = process.env.FIREBIRD_DATABASE_PATH || '/db';
-  
+  const dbPath = process.env.FIREBIRD_DATABASE_PATH || path.join(__dirname, '../db');
+
   // 디렉토리인 경우 첫 번째 .fdb 파일 찾기
   let testDbPath: string;
-  
+
   if (fs.statSync(dbPath).isDirectory()) {
     const files = fs.readdirSync(dbPath)
       .filter(file => file.toLowerCase().endsWith('.fdb'))
       .map(file => path.join(dbPath, file));
-    
+
     if (files.length === 0) {
       console.error(`❌ ${dbPath} 디렉토리에 .fdb 파일을 찾을 수 없습니다.`);
       process.exit(1);
     }
-    
+
     testDbPath = files[0];
     console.log(`📁 디렉토리에서 첫 번째 데이터베이스 파일 선택: ${path.basename(testDbPath)}\n`);
   } else {

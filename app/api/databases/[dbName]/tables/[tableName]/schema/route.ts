@@ -24,7 +24,10 @@ export async function GET(
           success: false,
           error: `데이터베이스 '${dbName}'를 찾을 수 없습니다.`,
         },
-        { status: 404 }
+        { 
+          status: 404,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' }
+        }
       );
     }
 
@@ -155,6 +158,8 @@ export async function GET(
         primaryKeys,
         foreignKeys,
       },
+    }, {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -162,7 +167,10 @@ export async function GET(
         success: false,
         error: error.message,
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      }
     );
   }
 }

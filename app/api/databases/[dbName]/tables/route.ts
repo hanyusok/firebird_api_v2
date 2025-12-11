@@ -23,7 +23,10 @@ export async function GET(
           success: false,
           error: `데이터베이스 '${dbName}'를 찾을 수 없습니다.`,
         },
-        { status: 404 }
+        { 
+          status: 404,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' }
+        }
       );
     }
 
@@ -53,6 +56,8 @@ export async function GET(
       database: dbName,
       count: tables.length,
       tables,
+    }, {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
     });
   } catch (error: any) {
     console.error('Tables API 오류:', {
@@ -66,7 +71,10 @@ export async function GET(
         error: error.message || '알 수 없는 오류가 발생했습니다.',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      }
     );
   }
 }

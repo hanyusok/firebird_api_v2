@@ -21,7 +21,10 @@ export async function POST(
           success: false,
           error: '쿼리가 필요합니다.',
         },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' }
+        }
       );
     }
 
@@ -33,7 +36,10 @@ export async function POST(
           success: false,
           error: 'SELECT 쿼리만 허용됩니다.',
         },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' }
+        }
       );
     }
 
@@ -48,7 +54,10 @@ export async function POST(
           success: false,
           error: `데이터베이스 '${dbName}'를 찾을 수 없습니다.`,
         },
-        { status: 404 }
+        { 
+          status: 404,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' }
+        }
       );
     }
 
@@ -60,6 +69,8 @@ export async function POST(
       query,
       count: result.length,
       data: result,
+    }, {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -67,7 +78,10 @@ export async function POST(
         success: false,
         error: error.message,
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      }
     );
   }
 }

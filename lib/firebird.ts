@@ -143,7 +143,7 @@ export async function executeTransaction<T = any>(
  * 데이터베이스 파일 목록 가져오기
  */
 export function getDatabaseFiles(): string[] {
-  const dbPath = process.env.FIREBIRD_DATABASE_PATH || './Db';
+  const dbPath = process.env.FIREBIRD_DATABASE_PATH || './db';
   
   const fullPath = path.isAbsolute(dbPath)
     ? dbPath

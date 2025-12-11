@@ -23,6 +23,8 @@ export async function GET() {
       success: true,
       count: databases.length,
       databases,
+    }, {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -30,7 +32,10 @@ export async function GET() {
         success: false,
         error: error.message,
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      }
     );
   }
 }

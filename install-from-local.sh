@@ -3,7 +3,7 @@
 
 set -e
 
-FIREBIRD_PACKAGE="/home/han/firebird_api_v2/FirebirdSS-2.5.9.27139-0.amd64.tar.gz"
+FIREBIRD_PACKAGE="/home/han/firebird_api_v2/TMP_DIR/FirebirdSS-2.5.9.27139-0.amd64.tar.gz"
 INSTALL_DIR="/home/han/firebird_api_v2"
 
 echo "=========================================="
