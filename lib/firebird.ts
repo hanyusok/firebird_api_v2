@@ -1,6 +1,7 @@
 import * as firebird from 'node-firebird';
 import path from 'path';
 import fs from 'fs';
+import iconv from 'iconv-lite';
 
 export interface FirebirdConfig {
   host?: string;
@@ -93,7 +94,9 @@ export async function executeQuery<T = any>(
           return;
         }
 
-        resolve(result || []);
+        // Buffer 값을 문자열로 변환
+        const convertedResult = result ? convertBuffersInObject(result) : [];
+        resolve(convertedResult);
       });
     });
   });
@@ -137,6 +140,62 @@ export async function executeTransaction<T = any>(
       }
     });
   });
+}
+
+/**
+ * Buffer를 문자열로 변환 (Firebird의 한글 인코딩 처리)
+ * Firebird 2.5는 보통 EUC-KR 또는 CP949 인코딩을 사용
+ */
+export function convertBufferToString(value: any): any {
+  if (Buffer.isBuffer(value)) {
+    // EUC-KR로 먼저 시도
+    try {
+      return iconv.decode(value, 'euc-kr').trim();
+    } catch (e) {
+      // CP949로 시도
+      try {
+        return iconv.decode(value, 'cp949').trim();
+      } catch (e2) {
+        // UTF-8로 시도
+        try {
+          return value.toString('utf-8').trim();
+        } catch (e3) {
+          // 실패하면 기본 toString
+          return value.toString().trim();
+        }
+      }
+    }
+  }
+  return value;
+}
+
+/**
+ * 객체의 모든 Buffer 값을 문자열로 변환 (재귀적 처리)
+ */
+export function convertBuffersInObject(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (Buffer.isBuffer(obj)) {
+    return convertBufferToString(obj);
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(convertBuffersInObject);
+  }
+
+  if (typeof obj === 'object') {
+    const result: any = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        result[key] = convertBuffersInObject(obj[key]);
+      }
+    }
+    return result;
+  }
+
+  return obj;
 }
 
 /**
