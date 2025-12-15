@@ -7,38 +7,14 @@
 ## 자동 설치 (권장)
 
 ```bash
-# 1. Firebird 3.0 제거
-./scripts/remove-firebird3.sh
 
-# 2. Firebird 2.5 설치
+# 1. Firebird 2.5 설치
 ./scripts/install-firebird2.5.sh
 ```
 
 ## 수동 설치
 
-### 1단계: Firebird 3.0 제거
-
-```bash
-# 서버 중지
-sudo systemctl stop firebird3.0
-sudo systemctl disable firebird3.0
-
-# 패키지 제거
-sudo apt-get remove --purge -y \
-    firebird3.0-server \
-    firebird3.0-server-core \
-    firebird3.0-utils \
-    firebird3.0-common \
-    firebird3.0-common-doc \
-    firebird3.0-doc \
-    firebird3.0-examples
-
-# 정리
-sudo apt-get autoremove -y
-sudo apt-get autoclean
-```
-
-### 2단계: Firebird 2.5 다운로드
+### 1단계: Firebird 2.5 다운로드
 
 1. 브라우저에서 다음 URL 열기:
    https://github.com/FirebirdSQL/firebird/releases/tag/v2.5.9
@@ -60,7 +36,7 @@ TMP_DIR=$(mktemp -d)
 cd "$TMP_DIR"
 
 # 다운로드한 파일을 이 디렉토리로 복사한 후:
-tar -xzf Firebird-2.5.9-*.tar.gz
+tar -xzf FirebirdSS-2.5.9-*.tar.gz
 cd Firebird-2.5.9-*
 
 # 설치 실행

@@ -1,6 +1,5 @@
 #!/bin/bash
 # Firebird 2.5 설치 스크립트 (Ubuntu/WSL)
-# Firebird 3.0을 제거하고 Firebird 2.5를 설치합니다.
 
 set -e
 
@@ -9,36 +8,8 @@ echo "Firebird 2.5 설치 스크립트"
 echo "=========================================="
 echo ""
 
-# 1. Firebird 3.0 제거
-echo "📦 1단계: Firebird 3.0 제거 중..."
-echo ""
-
-read -p "Firebird 3.0을 제거하시겠습니까? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "Firebird 3.0 서버 중지 중..."
-    sudo systemctl stop firebird3.0 2>/dev/null || true
-    sudo systemctl disable firebird3.0 2>/dev/null || true
-    
-    echo "Firebird 3.0 패키지 제거 중..."
-    sudo apt-get remove --purge -y \
-        firebird3.0-server \
-        firebird3.0-server-core \
-        firebird3.0-utils \
-        firebird3.0-common \
-        firebird3.0-common-doc \
-        firebird3.0-doc \
-        firebird3.0-examples 2>/dev/null || true
-    
-    echo "✅ Firebird 3.0 제거 완료"
-    echo ""
-else
-    echo "Firebird 3.0 제거를 건너뜁니다."
-    echo ""
-fi
-
-# 2. Firebird 2.5 다운로드 및 설치
-echo "📦 2단계: Firebird 2.5 설치 중..."
+# 1. Firebird 2.5 패키지 준비 및 설치
+echo "📦 1단계: Firebird 2.5 설치 중..."
 echo ""
 
 # 아키텍처 확인
@@ -51,79 +22,112 @@ if [ "$ARCH" != "amd64" ] && [ "$ARCH" != "i386" ]; then
     exit 1
 fi
 
+# Firebird 2.5.9 (최신 2.5 버전)
+FIREBIRD_VERSION="2.5.9"
+
+# 1-1. 현재 프로젝트 폴더의 tmp 디렉토리에 있는 tar.gz 우선 사용
+PROJECT_TMP_DIR="/home/han/firebird_api_v2/tmp"
+LOCAL_TAR=""
+
+if [ -d "$PROJECT_TMP_DIR" ]; then
+    # 예: FirebirdSS-2.5.9.27139-0.amd64.tar.gz 등
+    LOCAL_TAR_CANDIDATE=$(ls "$PROJECT_TMP_DIR"/*.tar.gz 2>/dev/null | head -n 1 || true)
+    if [ -n "$LOCAL_TAR_CANDIDATE" ]; then
+        LOCAL_TAR="$LOCAL_TAR_CANDIDATE"
+        echo "로컬에서 Firebird 패키지를 찾았습니다:"
+        echo "  $LOCAL_TAR"
+        echo ""
+    fi
+fi
+
 # 임시 디렉토리 생성
 TMP_DIR=$(mktemp -d)
 cd "$TMP_DIR"
 
-echo "Firebird 2.5 패키지 다운로드 중..."
-echo "공식 Firebird 웹사이트에서 다운로드합니다."
-echo ""
-
-# Firebird 2.5.9 (최신 2.5 버전) 다운로드
-FIREBIRD_VERSION="2.5.9"
-FIREBIRD_URL="https://github.com/FirebirdSQL/firebird/releases/download/v${FIREBIRD_VERSION}"
-
-if [ "$ARCH" = "amd64" ]; then
-    PACKAGE_NAME="Firebird-${FIREBIRD_VERSION}-amd64.tar.gz"
-elif [ "$ARCH" = "i386" ]; then
-    PACKAGE_NAME="Firebird-${FIREBIRD_VERSION}-i386.tar.gz"
+if [ -n "$LOCAL_TAR" ]; then
+    echo "로컬 tar.gz 파일을 사용하여 설치를 진행합니다."
+    cp "$LOCAL_TAR" .
+    PACKAGE_NAME=$(basename "$LOCAL_TAR")
 else
-    echo "❌ 지원되지 않는 아키텍처: $ARCH"
-    echo "Firebird 2.5는 amd64 또는 i386만 지원합니다."
-    exit 1
-fi
+    echo "로컬 tar.gz 파일을 찾지 못했습니다. 공식 사이트에서 다운로드합니다."
+    echo ""
 
-echo "다운로드 URL: ${FIREBIRD_URL}/${PACKAGE_NAME}"
-echo ""
+    FIREBIRD_URL="https://github.com/FirebirdSQL/firebird/releases/download/v${FIREBIRD_VERSION}"
 
-# wget 또는 curl 확인
-if ! command -v wget &> /dev/null && ! command -v curl &> /dev/null; then
-    echo "❌ wget 또는 curl이 필요합니다."
-    echo "다음 명령으로 설치하세요: sudo apt-get install wget"
-    exit 1
-fi
-
-# 다운로드 시도
-echo "Firebird 2.5 패키지 다운로드 중..."
-if command -v wget &> /dev/null; then
-    wget "${FIREBIRD_URL}/${PACKAGE_NAME}" -O "$PACKAGE_NAME" 2>&1 || {
-        echo ""
-        echo "❌ 자동 다운로드 실패"
-        echo ""
-        echo "수동 다운로드 방법:"
-        echo "1. 브라우저에서 다음 URL을 열어주세요:"
-        echo "   https://github.com/FirebirdSQL/firebird/releases/tag/v${FIREBIRD_VERSION}"
-        echo ""
-        echo "2. ${PACKAGE_NAME} 파일을 다운로드하세요"
-        echo ""
-        echo "3. 다운로드한 파일을 현재 디렉토리($TMP_DIR)에 복사한 후"
-        echo "   이 스크립트를 다시 실행하세요."
+    if [ "$ARCH" = "amd64" ]; then
+        PACKAGE_NAME="Firebird-${FIREBIRD_VERSION}-amd64.tar.gz"
+    elif [ "$ARCH" = "i386" ]; then
+        PACKAGE_NAME="Firebird-${FIREBIRD_VERSION}-i386.tar.gz"
+    else
+        echo "❌ 지원되지 않는 아키텍처: $ARCH"
+        echo "Firebird 2.5는 amd64 또는 i386만 지원합니다."
         exit 1
-    }
-else
-    curl -L "${FIREBIRD_URL}/${PACKAGE_NAME}" -o "$PACKAGE_NAME" 2>&1 || {
-        echo ""
-        echo "❌ 자동 다운로드 실패"
-        echo ""
-        echo "수동 다운로드 방법:"
-        echo "1. 브라우저에서 다음 URL을 열어주세요:"
-        echo "   https://github.com/FirebirdSQL/firebird/releases/tag/v${FIREBIRD_VERSION}"
-        echo ""
-        echo "2. ${PACKAGE_NAME} 파일을 다운로드하세요"
-        echo ""
-        echo "3. 다운로드한 파일을 현재 디렉토리($TMP_DIR)에 복사한 후"
-        echo "   이 스크립트를 다시 실행하세요."
-        exit 1
-    }
-fi
+    fi
 
-echo "✅ 다운로드 완료"
-echo ""
+    echo "다운로드 URL: ${FIREBIRD_URL}/${PACKAGE_NAME}"
+    echo ""
+
+    # wget 또는 curl 확인
+    if ! command -v wget &> /dev/null && ! command -v curl &> /dev/null; then
+        echo "❌ wget 또는 curl이 필요합니다."
+        echo "다음 명령으로 설치하세요: sudo apt-get install wget"
+        exit 1
+    fi
+
+    # 다운로드 시도
+    echo "Firebird 2.5 패키지 다운로드 중..."
+    if command -v wget &> /dev/null; then
+        wget "${FIREBIRD_URL}/${PACKAGE_NAME}" -O "$PACKAGE_NAME" 2>&1 || {
+            echo ""
+            echo "❌ 자동 다운로드 실패"
+            echo ""
+            echo "수동 다운로드 방법:"
+            echo "1. 브라우저에서 다음 URL을 열어주세요:"
+            echo "   https://github.com/FirebirdSQL/firebird/releases/tag/v${FIREBIRD_VERSION}"
+            echo ""
+            echo "2. ${PACKAGE_NAME} 파일을 다운로드하세요"
+            echo ""
+            echo "3. 다운로드한 파일을 현재 디렉토리($TMP_DIR)에 복사한 후"
+            echo "   이 스크립트를 다시 실행하세요."
+            exit 1
+        }
+    else
+        curl -L "${FIREBIRD_URL}/${PACKAGE_NAME}" -o "$PACKAGE_NAME" 2>&1 || {
+            echo ""
+            echo "❌ 자동 다운로드 실패"
+            echo ""
+            echo "수동 다운로드 방법:"
+            echo "1. 브라우저에서 다음 URL을 열어주세요:"
+            echo "   https://github.com/FirebirdSQL/firebird/releases/tag/v${FIREBIRD_VERSION}"
+            echo ""
+            echo "2. ${PACKAGE_NAME} 파일을 다운로드하세요"
+            echo ""
+            echo "3. 다운로드한 파일을 현재 디렉토리($TMP_DIR)에 복사한 후"
+            echo "   이 스크립트를 다시 실행하세요."
+            exit 1
+        }
+    fi
+
+    echo "✅ 다운로드 완료"
+    echo ""
+fi
 
 # 압축 해제
 echo "압축 해제 중..."
 tar -xzf "$PACKAGE_NAME"
-cd Firebird-${FIREBIRD_VERSION}-*
+
+# 압축을 풀고 나서 생성된 Firebird 디렉토리를 자동으로 찾기
+FIREBIRD_DIR=$(find . -maxdepth 1 -type d \( -name 'Firebird*' -o -name 'FirebirdSS*' \) | head -n 1 || true)
+
+if [ -z "$FIREBIRD_DIR" ]; then
+    echo "❌ Firebird 설치 디렉토리를 찾을 수 없습니다."
+    echo "현재 디렉토리 내용:"
+    ls -la
+    exit 1
+fi
+
+echo "찾은 설치 디렉토리: $FIREBIRD_DIR"
+cd "$FIREBIRD_DIR"
 
 # 설치 스크립트 확인
 if [ -f "install.sh" ]; then
