@@ -28,19 +28,19 @@ lsof -i :3050
 
 #### Ubuntu/WSL 설치:
 
+**Firebird 2.5 설치 (ODS 11.2 형식 데이터베이스용):**
+
+데이터베이스 파일이 Firebird 2.x 형식인 경우 Firebird 2.5가 필요합니다.
+
 ```bash
-# Firebird 3.0 서버 설치
-sudo apt update
-sudo apt install firebird3.0-server firebird3.0-utils -y
+# 자동 설치 스크립트 사용 (권장)
+./scripts/install-firebird2.5.sh
 
-# 설치 중 SYSDBA 비밀번호 설정 (기본값: masterkey)
-# 설치 후 서버 시작
-sudo systemctl start firebird3.0
-sudo systemctl enable firebird3.0
-
-# 서버 상태 확인
-sudo systemctl status firebird3.0
+# 설치 확인
+./check-firebird-installation.sh
 ```
+
+자세한 설치 방법은 [FIREBIRD_2.5_INSTALL.md](./FIREBIRD_2.5_INSTALL.md)를 참고하세요.
 
 #### macOS 설치:
 
@@ -55,15 +55,10 @@ sudo systemctl status firebird3.0
    sudo launchctl load -w /Library/LaunchDaemons/org.firebird.gds.plist
    ```
 
-**버전 호환성 문제:**
+**버전 호환성:**
 
-데이터베이스 파일이 Firebird 2.x/3.x 형식(ODS 11.2)인 경우:
-- Firebird 3.0 또는 4.0 설치 필요
-- Firebird 5.0은 ODS 13.1을 사용하므로 호환되지 않음
-
-자세한 내용은 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)를 참고하세요.
-
-자세한 내용은 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)와 [SCRIPTS.md](./SCRIPTS.md)를 참고하세요.
+- Firebird 2.x 형식(ODS 11.2): Firebird 2.5 필요
+- Firebird 5.0은 ODS 13.1을 사용하므로 이전 버전과 호환되지 않음
 
 ## 설치
 
@@ -104,7 +99,15 @@ npm run dev
 npm run analyze
 ```
 
-이 명령은 `Db/` 디렉토리의 모든 Firebird 데이터베이스 파일을 분석하고, `db-schema/` 디렉토리에 JSON 형식으로 스키마 정보를 저장합니다.
+이 명령은 환경 변수 `FIREBIRD_DATABASE_PATH`에 지정된 디렉토리의 모든 Firebird 데이터베이스 파일을 분석하고, `db-schema/` 디렉토리에 JSON 형식으로 스키마 정보를 저장합니다.
+
+### 연결 테스트
+
+```bash
+npm run test-connection
+```
+
+Firebird 데이터베이스 연결을 테스트합니다.
 
 ## API 엔드포인트
 
@@ -232,7 +235,47 @@ GET /api/databases/MTSDB/tables/USERS/schema
 }
 ```
 
-### 5. 사용자 정의 쿼리 실행
+### 5. 테이블 검색
+
+```http
+GET /api/databases/[dbName]/tables/[tableName]/search?pcode=123&pname=홍길동&page=1&limit=100
+```
+
+**쿼리 파라미터:**
+- `pcode`: 코드 검색 (숫자, 와일드카드 지원: `*`, `%`)
+- `pname`: 이름 검색 (문자열, 부분 일치)
+- `pbirth`: 생년월일 검색 (날짜 형식: YYYY-MM-DD)
+- `page`: 페이지 번호 (기본값: 1)
+- `limit`: 페이지당 레코드 수 (기본값: 100)
+
+**예시:**
+```http
+GET /api/databases/MTSDB/tables/PATIENTS/search?pcode=12345&pname=홍&page=1&limit=50
+```
+
+**응답 예시:**
+```json
+{
+  "success": true,
+  "database": "MTSDB",
+  "table": "PATIENTS",
+  "search": {
+    "pcode": "12345",
+    "pname": "홍",
+    "pbirth": null
+  },
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 10,
+    "totalPages": 1
+  },
+  "columns": ["PCODE", "PNAME", "PBIRTH"],
+  "data": [...]
+}
+```
+
+### 6. 사용자 정의 쿼리 실행
 
 ```http
 POST /api/databases/[dbName]/query
@@ -272,25 +315,57 @@ firebird_api_v2/
 │   │           │   ├── route.ts            # 테이블 목록
 │   │           │   └── [tableName]/
 │   │           │       ├── route.ts        # 테이블 데이터
-│   │           │       └── schema/
-│   │           │           └── route.ts    # 테이블 스키마
+│   │           │       ├── schema/
+│   │           │       │   └── route.ts    # 테이블 스키마
+│   │           │       └── search/
+│   │           │           └── route.ts    # 테이블 검색
 │   │           └── query/
 │   │               └── route.ts            # 사용자 쿼리
-│   └── page.tsx                            # API 문서 페이지
+│   ├── globals.css                         # 전역 스타일
+│   ├── layout.tsx                          # 레이아웃 컴포넌트
+│   └── page.tsx                            # 메인 페이지
 ├── lib/
-│   └── firebird.ts                         # Firebird 유틸리티
+│   └── firebird.ts                         # Firebird 유틸리티 함수
 ├── scripts/
-│   └── analyze-db.ts                       # 데이터베이스 분석 스크립트
-├── Db/                                     # Firebird 데이터베이스 파일
-└── db-schema/                              # 분석된 스키마 (자동 생성)
+│   ├── analyze-db.ts                       # 데이터베이스 분석 스크립트
+│   ├── install-firebird2.5.sh             # Firebird 2.5 설치 스크립트
+│   ├── fix-permissions.sh                 # 데이터베이스 파일 권한 수정
+│   └── test-connection.ts                  # 연결 테스트 스크립트
+├── check-firebird-installation.sh          # Firebird 설치 확인 스크립트
+├── FIREBIRD_2.5_INSTALL.md                # Firebird 2.5 설치 가이드
+├── WSL_SETUP.md                           # WSL 설정 가이드
+└── README.md                               # 프로젝트 문서
 ```
+
+## 유용한 스크립트
+
+### Firebird 설치 확인
+
+```bash
+./check-firebird-installation.sh
+```
+
+Firebird 설치 상태를 종합적으로 확인합니다.
+
+### 데이터베이스 파일 권한 수정
+
+```bash
+./scripts/fix-permissions.sh
+```
+
+데이터베이스 파일의 소유권과 권한을 올바르게 설정합니다.
 
 ## 기술 스택
 
 - **Next.js 14**: React 프레임워크
 - **TypeScript**: 타입 안정성
 - **node-firebird**: Firebird 데이터베이스 연결
-- **Tailwind CSS**: 스타일링 (선택사항)
+- **Tailwind CSS**: 스타일링
+
+## 추가 문서
+
+- [FIREBIRD_2.5_INSTALL.md](./FIREBIRD_2.5_INSTALL.md) - Firebird 2.5 설치 가이드
+- [WSL_SETUP.md](./WSL_SETUP.md) - WSL 환경 설정 가이드
 
 ## 라이선스
 
