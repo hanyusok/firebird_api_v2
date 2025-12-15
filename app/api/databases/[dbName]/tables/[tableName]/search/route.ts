@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { executeQuery, getDatabaseFiles } from '@/lib/firebird';
 import path from 'path';
+import iconv from 'iconv-lite';
 
 /**
  * GET /api/databases/[dbName]/tables/[tableName]/search
@@ -73,6 +74,7 @@ export async function GET(
     // WHERE 조건 구성
     const conditions: string[] = [];
     const queryParams: any[] = [];
+    const directConditions: string[] = []; // 인코딩이 필요한 조건 (직접 쿼리에 포함)
 
     if (pcode) {
       // PCODE는 숫자이므로 정확 일치 또는 부분 일치 지원
@@ -93,8 +95,27 @@ export async function GET(
       const pattern = pname.includes('%') || pname.includes('*') 
         ? pname.replace(/\*/g, '%')
         : `%${pname}%`;
-      conditions.push(`PNAME LIKE ?`);
-      queryParams.push(pattern);
+      
+      // 한글 검색을 위해 UTF-8을 EUC-KR로 변환
+      // node-firebird의 파라미터 바인딩이 인코딩을 자동 처리하지 않으므로
+      // EUC-KR 바이트를 hex 문자열로 변환하여 SQL에 포함
+      try {
+        // UTF-8 문자열을 EUC-KR Buffer로 변환
+        const eucKrBuffer = iconv.encode(pattern, 'euc-kr');
+        
+        // EUC-KR 바이트를 hex 문자열로 변환
+        // Firebird에서 hex 문자열은 x'...' 형식으로 사용
+        const hexPattern = eucKrBuffer.toString('hex').toUpperCase();
+        
+        // 직접 쿼리에 포함 (hex 인코딩으로 SQL injection 방지)
+        // CAST를 사용하여 hex를 문자열로 변환
+        directConditions.push(`PNAME LIKE CAST(x'${hexPattern}' AS VARCHAR(100))`);
+      } catch (e) {
+        // 인코딩 실패 시 파라미터 사용 (fallback)
+        console.warn('한글 인코딩 변환 실패, 파라미터 사용:', e);
+        conditions.push(`PNAME LIKE ?`);
+        queryParams.push(pattern);
+      }
     }
 
     if (pbirth) {
@@ -104,8 +125,8 @@ export async function GET(
       queryParams.push(pbirth);
     }
 
-    // 검색 조건이 없으면 에러 반환
-    if (conditions.length === 0) {
+    // 검색 조건이 없으면 에러 반환 (directConditions와 conditions 모두 확인)
+    if (directConditions.length === 0 && conditions.length === 0) {
       return NextResponse.json(
         {
           success: false,
@@ -118,7 +139,9 @@ export async function GET(
       );
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    // 직접 조건과 파라미터 조건 결합
+    const allConditions = [...directConditions, ...conditions];
+    const whereClause = allConditions.length > 0 ? `WHERE ${allConditions.join(' AND ')}` : '';
 
     // 전체 레코드 수 조회
     const countQuery = `SELECT COUNT(*) AS TOTAL FROM "${tableName}" ${whereClause}`;

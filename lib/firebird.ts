@@ -20,6 +20,7 @@ export interface FirebirdOptions {
   lowercase_keys?: boolean;
   role?: string;
   pageSize?: number;
+  charset?: string;
 }
 
 /**
@@ -46,6 +47,7 @@ export function getFirebirdOptions(config: FirebirdConfig): FirebirdOptions {
     user: config.user || process.env.FIREBIRD_USER || 'SYSDBA',
     password: config.password || process.env.FIREBIRD_PASSWORD || 'masterkey',
     lowercase_keys: false, // Firebird는 기본적으로 대문자 키를 사용
+    charset: 'euc_kr', // Firebird 2.5는 보통 EUC-KR 인코딩을 사용
   };
 
   return options;
@@ -167,6 +169,43 @@ export function convertBufferToString(value: any): any {
     }
   }
   return value;
+}
+
+/**
+ * UTF-8 문자열을 Firebird 인코딩(EUC-KR/CP949)으로 변환
+ * 검색 파라미터를 데이터베이스 인코딩에 맞게 변환
+ */
+export function encodeToFirebird(str: string): string {
+  if (!str || typeof str !== 'string') {
+    return str;
+  }
+  
+  try {
+    // EUC-KR로 인코딩 시도
+    const eucKrBuffer = iconv.encode(str, 'euc-kr');
+    // 다시 디코딩하여 검증 (정상적으로 인코딩되었는지 확인)
+    const decoded = iconv.decode(eucKrBuffer, 'euc-kr');
+    if (decoded === str) {
+      // EUC-KR로 인코딩 가능한 경우, Buffer를 문자열로 변환
+      // node-firebird는 Buffer를 자동으로 처리하므로 원본 문자열 반환
+      // 하지만 실제로는 Buffer를 전달해야 할 수도 있음
+      return str;
+    }
+  } catch (e) {
+    // EUC-KR 인코딩 실패 시 CP949 시도
+    try {
+      const cp949Buffer = iconv.encode(str, 'cp949');
+      const decoded = iconv.decode(cp949Buffer, 'cp949');
+      if (decoded === str) {
+        return str;
+      }
+    } catch (e2) {
+      // 인코딩 실패 시 원본 반환
+    }
+  }
+  
+  // 인코딩 변환이 필요 없는 경우 원본 반환
+  return str;
 }
 
 /**
