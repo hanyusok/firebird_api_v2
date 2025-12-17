@@ -96,23 +96,23 @@ export async function GET(
         ? pname.replace(/\*/g, '%')
         : `%${pname}%`;
       
-      // 한글 검색을 위해 UTF-8을 EUC-KR로 변환
-      // node-firebird의 파라미터 바인딩이 인코딩을 자동 처리하지 않으므로
-      // EUC-KR 바이트를 hex 문자열로 변환하여 SQL에 포함
+      // PERSON 테이블에서 한글이 정상적으로 읽히는 것은 결과를 읽을 때입니다.
+      // 하지만 파라미터 바인딩에서는 node-firebird가 charset 변환을 자동 처리하지 않을 수 있음
+      // 따라서 UTF-8을 EUC-KR Buffer로 변환하여 전달
       try {
-        // UTF-8 문자열을 EUC-KR Buffer로 변환
         const eucKrBuffer = iconv.encode(pattern, 'euc-kr');
+        // Buffer를 파라미터로 전달 (node-firebird가 처리)
+        conditions.push(`PNAME LIKE ?`);
+        queryParams.push(eucKrBuffer);
         
-        // EUC-KR 바이트를 hex 문자열로 변환
-        // Firebird에서 hex 문자열은 x'...' 형식으로 사용
-        const hexPattern = eucKrBuffer.toString('hex').toUpperCase();
-        
-        // 직접 쿼리에 포함 (hex 인코딩으로 SQL injection 방지)
-        // CAST를 사용하여 hex를 문자열로 변환
-        directConditions.push(`PNAME LIKE CAST(x'${hexPattern}' AS VARCHAR(100))`);
+        console.log('한글 검색 파라미터 (EUC-KR Buffer):', {
+          pattern,
+          bufferLength: eucKrBuffer.length,
+          bufferHex: eucKrBuffer.toString('hex').toUpperCase()
+        });
       } catch (e) {
-        // 인코딩 실패 시 파라미터 사용 (fallback)
-        console.warn('한글 인코딩 변환 실패, 파라미터 사용:', e);
+        // 인코딩 실패 시 원본 문자열 사용 (fallback)
+        console.warn('한글 인코딩 변환 실패, 원본 문자열 사용:', e);
         conditions.push(`PNAME LIKE ?`);
         queryParams.push(pattern);
       }
@@ -143,21 +143,39 @@ export async function GET(
     const allConditions = [...directConditions, ...conditions];
     const whereClause = allConditions.length > 0 ? `WHERE ${allConditions.join(' AND ')}` : '';
 
+    // 디버깅: 최종 쿼리 로그
+    console.log('검색 쿼리:', {
+      whereClause,
+      queryParams: queryParams.length,
+      directConditions: directConditions.length,
+      conditions: conditions.length,
+      paramTypes: queryParams.map(p => typeof p === 'object' && Buffer.isBuffer(p) ? 'Buffer' : typeof p)
+    });
+
     // 전체 레코드 수 조회
     const countQuery = `SELECT COUNT(*) AS TOTAL FROM "${tableName}" ${whereClause}`;
+    
+    // directConditions를 사용할 때는 queryParams가 비어있어야 함
+    const finalQueryParams = directConditions.length > 0 ? [] : queryParams;
+    
+    console.log('COUNT 쿼리 실행:', { countQuery, paramsCount: finalQueryParams.length });
+    
     const countResult = await executeQuery<{ TOTAL: number }>(
       { database: dbFile },
       countQuery,
-      queryParams
+      finalQueryParams
     );
     const total = countResult[0]?.TOTAL || 0;
 
     // 데이터 조회 (FIRST와 SKIP은 파라미터가 아닌 직접 값으로 사용)
     const dataQuery = `SELECT FIRST ${limit} SKIP ${offset} * FROM "${tableName}" ${whereClause} ORDER BY PCODE`;
+    
+    console.log('DATA 쿼리 실행:', { dataQuery, paramsCount: finalQueryParams.length });
+    
     const data = await executeQuery(
       { database: dbFile },
       dataQuery,
-      queryParams
+      finalQueryParams
     );
 
     // 컬럼 정보 조회
@@ -197,6 +215,7 @@ export async function GET(
       headers: { 'Content-Type': 'application/json; charset=utf-8' }
     });
   } catch (error: any) {
+    const { dbName, tableName } = params;
     console.error('Search API 오류:', {
       dbName,
       tableName,
