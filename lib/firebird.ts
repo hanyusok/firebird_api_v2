@@ -224,6 +224,22 @@ export function convertBuffersInObject(obj: any): any {
     return obj.map(convertBuffersInObject);
   }
 
+  if (obj instanceof Date) {
+    // 날짜 및 시간 포맷팅
+    const year = obj.getFullYear();
+    const month = String(obj.getMonth() + 1).padStart(2, '0');
+    const day = String(obj.getDate()).padStart(2, '0');
+    const hours = obj.getHours();
+    const minutes = obj.getMinutes();
+    const seconds = obj.getSeconds();
+    
+    // 시간이 00:00:00이면 날짜만 반환, 아니면 전체 일시 반환
+    if (hours === 0 && minutes === 0 && seconds === 0) {
+      return `${year}-${month}-${day}`;
+    }
+    return `${year}-${month}-${day} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
   if (typeof obj === 'object') {
     const result: any = {};
     for (const key in obj) {

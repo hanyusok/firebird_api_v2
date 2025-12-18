@@ -96,23 +96,22 @@ export async function GET(
         ? pname.replace(/\*/g, '%')
         : `%${pname}%`;
       
-      // PERSON 테이블에서 한글이 정상적으로 읽히는 것은 결과를 읽을 때입니다.
-      // 하지만 파라미터 바인딩에서는 node-firebird가 charset 변환을 자동 처리하지 않을 수 있음
-      // 따라서 UTF-8을 EUC-KR Buffer로 변환하여 전달
+      // Firebird 2.5 + node-firebird에서 한글 파라미터 바인딩(?) 이슈 해결을 위해
+      // HEX 리터럴 방식(X'...')을 사용하여 직접 쿼리에 포함
       try {
         const eucKrBuffer = iconv.encode(pattern, 'euc-kr');
-        // Buffer를 파라미터로 전달 (node-firebird가 처리)
-        conditions.push(`PNAME LIKE ?`);
-        queryParams.push(eucKrBuffer);
+        const hexString = eucKrBuffer.toString('hex').toUpperCase();
         
-        console.log('한글 검색 파라미터 (EUC-KR Buffer):', {
+        // directConditions에 추가하여 쿼리에 직접 포함되게 함
+        directConditions.push(`PNAME LIKE X'${hexString}'`);
+        
+        console.log('한글 검색 (HEX 리터럴):', {
           pattern,
-          bufferLength: eucKrBuffer.length,
-          bufferHex: eucKrBuffer.toString('hex').toUpperCase()
+          hex: hexString
         });
       } catch (e) {
-        // 인코딩 실패 시 원본 문자열 사용 (fallback)
-        console.warn('한글 인코딩 변환 실패, 원본 문자열 사용:', e);
+        // 인코딩 실패 시 기존 파라미터 바인딩 방식 사용 (fallback)
+        console.warn('한글 인코딩 변환 실패, 파라미터 바인딩 사용:', e);
         conditions.push(`PNAME LIKE ?`);
         queryParams.push(pattern);
       }
@@ -155,27 +154,24 @@ export async function GET(
     // 전체 레코드 수 조회
     const countQuery = `SELECT COUNT(*) AS TOTAL FROM "${tableName}" ${whereClause}`;
     
-    // directConditions를 사용할 때는 queryParams가 비어있어야 함
-    const finalQueryParams = directConditions.length > 0 ? [] : queryParams;
-    
-    console.log('COUNT 쿼리 실행:', { countQuery, paramsCount: finalQueryParams.length });
+    console.log('COUNT 쿼리 실행:', { countQuery, paramsCount: queryParams.length });
     
     const countResult = await executeQuery<{ TOTAL: number }>(
       { database: dbFile },
       countQuery,
-      finalQueryParams
+      queryParams
     );
     const total = countResult[0]?.TOTAL || 0;
 
     // 데이터 조회 (FIRST와 SKIP은 파라미터가 아닌 직접 값으로 사용)
     const dataQuery = `SELECT FIRST ${limit} SKIP ${offset} * FROM "${tableName}" ${whereClause} ORDER BY PCODE`;
     
-    console.log('DATA 쿼리 실행:', { dataQuery, paramsCount: finalQueryParams.length });
+    console.log('DATA 쿼리 실행:', { dataQuery, paramsCount: queryParams.length });
     
     const data = await executeQuery(
       { database: dbFile },
       dataQuery,
-      finalQueryParams
+      queryParams
     );
 
     // 컬럼 정보 조회
