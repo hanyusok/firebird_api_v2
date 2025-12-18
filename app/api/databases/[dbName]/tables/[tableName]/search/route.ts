@@ -19,6 +19,8 @@ export async function GET(
     const pcode = searchParams.get('pcode');
     const pname = searchParams.get('pname');
     const pbirth = searchParams.get('pbirth');
+    const visidate = searchParams.get('visidate');
+    const candate = searchParams.get('candate');
     
     // 페이징 파라미터
     const page = parseInt(searchParams.get('page') || '1');
@@ -124,12 +126,24 @@ export async function GET(
       queryParams.push(pbirth);
     }
 
+    if (visidate) {
+      // VISIDATE는 날짜이므로 정확 일치
+      conditions.push(`VISIDATE = ?`);
+      queryParams.push(visidate);
+    }
+
+    if (candate) {
+      // CANDATE는 날짜이므로 정확 일치
+      conditions.push(`CANDATE = ?`);
+      queryParams.push(candate);
+    }
+
     // 검색 조건이 없으면 에러 반환 (directConditions와 conditions 모두 확인)
     if (directConditions.length === 0 && conditions.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: '검색 조건이 필요합니다. (pcode, pname, pbirth 중 하나 이상)',
+          error: '검색 조건이 필요합니다. (pcode, pname, pbirth, visidate, candate 중 하나 이상)',
         },
         { 
           status: 400,
@@ -198,6 +212,8 @@ export async function GET(
         pcode: pcode || null,
         pname: pname || null,
         pbirth: pbirth || null,
+        visidate: visidate || null,
+        candate: candate || null,
       },
       pagination: {
         page,
